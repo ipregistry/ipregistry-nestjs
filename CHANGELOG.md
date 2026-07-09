@@ -36,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `isBot`.
 - Fail-open behavior by default with an opt-in fail-closed mode
   (`failOpen: false`) answering 503, and an `onError` monitoring hook.
+- `IpregistryHealthIndicator`, compatible with `@nestjs/terminus` without
+  depending on it, probing the API through the cache and reporting the
+  remaining credits.
+- Bootstrap validation of module options (country codes, `developmentIp`,
+  `timeout`, `maxRetries`) and a one-line sanitized configuration summary
+  logged at startup.
 - Testing utilities in `@ipregistry/nestjs/testing`: `FakeIpregistryClient`
   with canned responses and call recording, plus the `createIpInfo`,
   `createUserAgent`, and `createAutonomousSystem` fixture builders.

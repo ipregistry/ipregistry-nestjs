@@ -24,7 +24,7 @@ import {
 } from '@ipregistry/client'
 
 import type { ThreatOptions } from './helpers.js'
-import type { IpSource } from './ip.js'
+import { isPrivateIp, isValidIp, type IpSource } from './ip.js'
 import type { IpregistryErrorInfo } from './types.js'
 
 /**
@@ -204,13 +204,70 @@ export class MissingApiKeyError extends ClientError {
     }
 }
 
+function validateCountries(
+    option: 'blockCountries' | 'allowCountries',
+    countries: string[] | undefined,
+): void {
+    for (const country of countries ?? []) {
+        if (!/^[A-Za-z]{2}$/.test(country)) {
+            throw new ClientError(
+                `Invalid Ipregistry ${option} entry '${country}': expected ` +
+                    "an ISO 3166-1 alpha-2 country code such as 'FR'.",
+            )
+        }
+    }
+}
+
+/**
+ * Validates module options at bootstrap so misconfigurations surface as a
+ * startup failure with a clear message instead of at request time.
+ */
+export function validateModuleOptions(options: IpregistryModuleOptions): void {
+    if (options.timeout !== undefined && options.timeout <= 0) {
+        throw new ClientError(
+            `Invalid Ipregistry timeout ${options.timeout}: expected a ` +
+                'positive number of milliseconds.',
+        )
+    }
+
+    if (options.maxRetries !== undefined && options.maxRetries < 0) {
+        throw new ClientError(
+            `Invalid Ipregistry maxRetries ${options.maxRetries}: expected ` +
+                'zero or a positive integer.',
+        )
+    }
+
+    if (options.developmentIp !== undefined) {
+        if (!isValidIp(options.developmentIp)) {
+            throw new ClientError(
+                `Invalid Ipregistry developmentIp '${options.developmentIp}': ` +
+                    'expected a valid IP address.',
+            )
+        }
+
+        if (isPrivateIp(options.developmentIp)) {
+            throw new ClientError(
+                `Invalid Ipregistry developmentIp '${options.developmentIp}': ` +
+                    'expected a public IP address, since private addresses ' +
+                    'are never sent to the API.',
+            )
+        }
+    }
+
+    validateCountries('blockCountries', options.blockCountries)
+    validateCountries('allowCountries', options.allowCountries)
+}
+
 /**
  * Builds the `IpregistryClient` provided by `IpregistryModule`, merging
- * explicit options with environment variables.
+ * explicit options with environment variables. Validates the module options
+ * first, so the application fails fast on misconfiguration.
  */
 export function createIpregistryClient(
     options: IpregistryModuleOptions = {},
 ): IpregistryClient {
+    validateModuleOptions(options)
+
     if (options.client) {
         return options.client
     }

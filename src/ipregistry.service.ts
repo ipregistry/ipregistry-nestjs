@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Inject, Injectable, Logger } from '@nestjs/common'
+import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common'
 import {
     IpregistryClient,
     type ApiResponse,
@@ -54,7 +54,7 @@ import type { IpregistryRequestContext, RequestLike } from './types.js'
  * and never throws.
  */
 @Injectable()
-export class IpregistryService {
+export class IpregistryService implements OnModuleInit {
     private readonly logger = new Logger('Ipregistry')
     private readonly extractor: IpExtractor
     private readonly contexts = new WeakMap<
@@ -68,6 +68,37 @@ export class IpregistryService {
         private readonly options: IpregistryModuleOptions,
     ) {
         this.extractor = createIpExtractor(options.ipSource)
+    }
+
+    /**
+     * Logs a one-line summary of the effective configuration at bootstrap.
+     * Never includes the API key or any IP address.
+     */
+    onModuleInit(): void {
+        const { options } = this
+        const baseUrl =
+            options.baseUrl ??
+            process.env.IPREGISTRY_BASE_URL ??
+            'https://api.ipregistry.co'
+        const ipSource =
+            typeof options.ipSource === 'function'
+                ? 'custom'
+                : typeof options.ipSource === 'object'
+                  ? `header:${options.ipSource.header.toLowerCase()}`
+                  : (options.ipSource ?? 'auto')
+        const cache =
+            options.cache === false
+                ? 'disabled'
+                : options.cache
+                  ? options.cache.constructor.name
+                  : 'InMemoryCache'
+        const fields = options.fields ?? process.env.IPREGISTRY_FIELDS ?? 'all'
+
+        this.logger.log(
+            `Configured: baseUrl=${baseUrl}, ipSource=${ipSource}, ` +
+                `cache=${cache}, fields=${fields}, ` +
+                `failOpen=${options.failOpen !== false}`,
+        )
     }
 
     /**

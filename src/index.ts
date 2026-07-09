@@ -59,6 +59,11 @@ export {
     IpregistryThreatsGuard,
     isIpregistrySkipped,
 } from './ipregistry.guards.js'
+export {
+    IpregistryHealthIndicator,
+    type IpregistryHealthCheckOptions,
+    type IpregistryHealthIndicatorResult,
+} from './ipregistry.health.js'
 export { IpregistryInterceptor } from './ipregistry.interceptor.js'
 export { IpregistryMiddleware } from './ipregistry.middleware.js'
 export { IpregistryModule } from './ipregistry.module.js'
@@ -67,6 +72,7 @@ export {
     createIpregistryClient,
     MissingApiKeyError,
     toErrorInfo,
+    validateModuleOptions,
     type IpregistryModuleOptions,
 } from './options.js'
 export type {
@@ -82,8 +88,11 @@ export { LIBRARY_VERSION } from './version.js'
 export {
     ApiError,
     ClientError,
+    ErrorCode,
     InMemoryCache,
     IpregistryClient,
+    isApiError,
+    isError,
     LookupError,
     NoCache,
     UserAgents,

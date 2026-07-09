@@ -25,6 +25,7 @@ import {
     IpregistryCountriesGuard,
     IpregistryThreatsGuard,
 } from './ipregistry.guards.js'
+import { IpregistryHealthIndicator } from './ipregistry.health.js'
 import { IpregistryInterceptor } from './ipregistry.interceptor.js'
 import { IpregistryMiddleware } from './ipregistry.middleware.js'
 import { IpregistryService } from './ipregistry.service.js'
@@ -72,6 +73,7 @@ import {
         IpregistryService,
         IpregistryCountriesGuard,
         IpregistryThreatsGuard,
+        IpregistryHealthIndicator,
         IpregistryInterceptor,
         IpregistryMiddleware,
     ],
@@ -81,6 +83,7 @@ import {
         IpregistryService,
         IpregistryCountriesGuard,
         IpregistryThreatsGuard,
+        IpregistryHealthIndicator,
         IpregistryInterceptor,
         IpregistryMiddleware,
     ],

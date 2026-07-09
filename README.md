@@ -290,7 +290,31 @@ IpregistryModule.forRoot({
 })
 ```
 
-Direct `IpregistryService` lookup methods (e.g. `lookupIp`) throw the SDK's `ApiError` or `ClientError`, both re-exported by this package.
+Direct `IpregistryService` lookup methods (e.g. `lookupIp`) throw the SDK's `ApiError` or `ClientError`, both re-exported by this package along with the `ErrorCode` enum and the `isApiError` type guard.
+
+## Health checks
+
+`IpregistryHealthIndicator` plugs into [`@nestjs/terminus`](https://docs.nestjs.com/recipes/terminus) without this package depending on it:
+
+```ts
+import { IpregistryHealthIndicator } from '@ipregistry/nestjs'
+
+@Controller('health')
+export class HealthController {
+    constructor(
+        private readonly health: HealthCheckService,
+        private readonly ipregistry: IpregistryHealthIndicator,
+    ) {}
+
+    @Get()
+    @HealthCheck()
+    check() {
+        return this.health.check([() => this.ipregistry.isHealthy()])
+    }
+}
+```
+
+The probe looks up a fixed IP (default 8.8.8.8, configurable via `isHealthy('ipregistry', { probeIp })`) with `fields: 'ip'`. With the default cache the probe answers from cache most of the time, so it consumes at most one credit per cache TTL; outage detection is delayed by the same bound. When healthy, the result includes the remaining API credits when the API reports them, so monitoring can alert before lookups start failing.
 
 ## Configuration
 
@@ -319,6 +343,16 @@ All options for `IpregistryModule.forRoot` and `forRootAsync` factories. Explici
 | `retryOnServerError`     |                             | true                        | Whether to retry on 5xx responses.                                                               |
 | `retryOnTooManyRequests` |                             | false                       | Whether to retry on 429 responses.                                                               |
 | `timeout`                | `IPREGISTRY_TIMEOUT`        | 5000                        | Lookup timeout in milliseconds.                                                                  |
+
+## Production checklist
+
+- Select only the fields you need (`fields: 'ip,location,security'`): smaller payloads, faster lookups, and, depending on your plan, lower credit consumption.
+- Set `ipSource` to match your actual proxy topology; the default `auto` trusts `x-real-ip` and `x-forwarded-for`, which is only safe when your proxy overwrites them. Use `socket` when the server is directly exposed.
+- Keep the default cache (or plug a shared store) so repeated visitors do not consume credits; remember the per-request memoization already deduplicates readers.
+- Decide on `failOpen`: the default lets traffic through during an Ipregistry outage; `failOpen: false` answers 503 instead. For blocking guards, fail-open means undetermined visitors pass.
+- Wire `onError` to your monitoring, and consider `IpregistryHealthIndicator` for readiness dashboards and credit alerts.
+- Exempt health checks, metrics endpoints, and webhooks with `@SkipIpregistry()` (or middleware `exclude()`), so probes never consume lookups.
+- Misconfigurations (invalid country codes, private `developmentIp`, non-positive timeout) fail at bootstrap with a clear message, not at request time; a one-line sanitized configuration summary is logged at startup under the `Ipregistry` context.
 
 ## Testing your application
 
@@ -362,6 +396,7 @@ Fixture builders `createIpInfo`, `createUserAgent`, and `createAutonomousSystem`
 | `@SkipIpregistry()`                                         | Opts a route or controller out of enrichment and blocking.                       |
 | `@Ipregistry()`, `@ClientIp()`                              | Parameter decorators injecting the request context and the client IP.            |
 | `getIpregistryContext(request)`                             | Reads the enriched context from any request object.                              |
+| `IpregistryHealthIndicator`                                 | Health probe for `@nestjs/terminus`, reporting remaining credits.                |
 | `isEuVisitor`, `isThreat`, `isBot`                          | Boolean helpers on `IpInfo` or request contexts; `isBot` needs no API call.      |
 | `createIpExtractor`, `isPrivateIp`, `anonymizeIp`           | IP extraction utilities.                                                         |
 | `IpregistryModuleOptions`, `IpregistryRequestContext`, ...  | All configuration and context types, plus re-exported SDK types (`IpInfo`, ...). |
