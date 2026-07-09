@@ -33,6 +33,10 @@ jobs:
         run: npm test
 
       - name: Build
+        # tsdown requires Node ^22.18 || >=24.11; the package itself keeps
+        # supporting consumers on Node 20 (engines), which the test step
+        # covers on every matrix version.
+        if: matrix.node-version != '20.x'
         run: npm run build
 
   # The package declares support for NestJS 10 and 11 in peerDependencies;
