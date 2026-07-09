@@ -15,8 +15,10 @@
  */
 
 import {
+    applyDecorators,
     createParamDecorator,
     SetMetadata,
+    UseGuards,
     type CustomDecorator,
     type ExecutionContext,
 } from '@nestjs/common'
@@ -25,11 +27,18 @@ import {
     ALLOW_COUNTRIES_METADATA,
     BLOCK_COUNTRIES_METADATA,
     BLOCK_THREATS_METADATA,
+    SKIP_IPREGISTRY_METADATA,
 } from './constants.js'
 import { getIpregistryContext } from './context.js'
 import type { ThreatOptions } from './helpers.js'
 import { createIpExtractor } from './ip.js'
+import {
+    IpregistryCountriesGuard,
+    IpregistryThreatsGuard,
+} from './ipregistry.guards.js'
 import type { IpregistryRequestContext, RequestLike } from './types.js'
+
+type BlockingDecorator = ClassDecorator & MethodDecorator
 
 function normalizeCountries(decorator: string, countries: string[]): string[] {
     if (countries.length === 0) {
@@ -57,86 +66,115 @@ function normalizeCountries(decorator: string, countries: string[]): string[] {
 /**
  * Blocks visitors from the given countries (ISO 3166-1 alpha-2 codes) on the
  * decorated route or controller, answering 451 Unavailable For Legal
- * Reasons. Requires `IpregistryCountriesGuard`:
+ * Reasons. Self-contained: the decorator applies `IpregistryCountriesGuard`
+ * itself, no separate `@UseGuards()` needed:
  *
  * ```ts
  * @Get('checkout')
- * @UseGuards(IpregistryCountriesGuard)
  * @BlockCountries('KP', 'IR')
  * checkout() {}
  * ```
  *
  * Invalid codes throw at route definition time, not at request time.
  */
-export const BlockCountries = (
-    ...countries: string[]
-): CustomDecorator<string> =>
-    SetMetadata(
-        BLOCK_COUNTRIES_METADATA,
-        normalizeCountries('BlockCountries', countries),
+export const BlockCountries = (...countries: string[]): BlockingDecorator =>
+    applyDecorators(
+        SetMetadata(
+            BLOCK_COUNTRIES_METADATA,
+            normalizeCountries('BlockCountries', countries),
+        ),
+        UseGuards(IpregistryCountriesGuard),
     )
 
 /**
  * Allows only visitors from the given countries (ISO 3166-1 alpha-2 codes)
  * on the decorated route or controller, answering 451 Unavailable For Legal
- * Reasons to everyone else. Requires `IpregistryCountriesGuard`.
+ * Reasons to everyone else. Self-contained: the decorator applies
+ * `IpregistryCountriesGuard` itself, no separate `@UseGuards()` needed.
  */
-export const AllowCountries = (
-    ...countries: string[]
-): CustomDecorator<string> =>
-    SetMetadata(
-        ALLOW_COUNTRIES_METADATA,
-        normalizeCountries('AllowCountries', countries),
+export const AllowCountries = (...countries: string[]): BlockingDecorator =>
+    applyDecorators(
+        SetMetadata(
+            ALLOW_COUNTRIES_METADATA,
+            normalizeCountries('AllowCountries', countries),
+        ),
+        UseGuards(IpregistryCountriesGuard),
     )
 
 /**
  * Blocks visitors whose IP is flagged by Ipregistry on the decorated route
  * or controller, answering 403 Forbidden. Without arguments the default
  * signals are checked (threat, attacker, abuser); pass a `ThreatOptions`
- * object to include anonymization signals. Requires
- * `IpregistryThreatsGuard`:
+ * object to include anonymization signals. Self-contained: the decorator
+ * applies `IpregistryThreatsGuard` itself, no separate `@UseGuards()`
+ * needed:
  *
  * ```ts
  * @Post('signup')
- * @UseGuards(IpregistryThreatsGuard)
  * @BlockThreats({ tor: true, vpn: true })
  * signup() {}
  * ```
  */
-export const BlockThreats = (
-    options: ThreatOptions = {},
-): CustomDecorator<string> => SetMetadata(BLOCK_THREATS_METADATA, options)
+export const BlockThreats = (options: ThreatOptions = {}): BlockingDecorator =>
+    applyDecorators(
+        SetMetadata(BLOCK_THREATS_METADATA, options),
+        UseGuards(IpregistryThreatsGuard),
+    )
+
+/**
+ * Opts the decorated route or controller out of Ipregistry processing:
+ * a globally registered `IpregistryInterceptor` performs no lookup, and the
+ * blocking guards pass without checking anything. Typical for health
+ * checks, metrics endpoints, and webhooks:
+ *
+ * ```ts
+ * @Get('health')
+ * @SkipIpregistry()
+ * health() {}
+ * ```
+ *
+ * Note: `IpregistryMiddleware` runs before routing and cannot see route
+ * metadata; scope it with `forRoutes()` and `exclude()` instead.
+ */
+export const SkipIpregistry = (): CustomDecorator<string> =>
+    SetMetadata(SKIP_IPREGISTRY_METADATA, true)
 
 /**
  * Injects the request's `IpregistryRequestContext` into a route handler
- * parameter. The request must have been enriched first, by
- * `IpregistryMiddleware`, `IpregistryInterceptor`, or one of the blocking
- * guards; otherwise the context's `skipped` field is 'not-enriched':
+ * parameter, or one of its properties when a key is given. The request must
+ * have been enriched first, by `IpregistryMiddleware`,
+ * `IpregistryInterceptor`, or one of the blocking guards; otherwise the
+ * context's `skipped` field is 'not-enriched':
  *
  * ```ts
  * @Get()
  * @UseInterceptors(IpregistryInterceptor)
- * home(@Ipregistry() ipregistry: IpregistryRequestContext) {
- *     return { country: ipregistry.data?.location?.country?.name }
+ * home(
+ *     @Ipregistry() ipregistry: IpregistryRequestContext,
+ *     @Ipregistry('data') data: IpInfo | null,
+ * ) {
+ *     return { country: data?.location?.country?.name }
  * }
  * ```
  */
 export const Ipregistry = createParamDecorator(
     (
-        _data: unknown,
+        data: keyof IpregistryRequestContext | undefined,
         executionContext: ExecutionContext,
-    ): IpregistryRequestContext => {
+    ):
+        | IpregistryRequestContext[keyof IpregistryRequestContext]
+        | IpregistryRequestContext => {
         const request = executionContext
             .switchToHttp()
             .getRequest<RequestLike>()
 
-        return (
-            getIpregistryContext(request) ?? {
-                ip: null,
-                data: null,
-                skipped: 'not-enriched',
-            }
-        )
+        const context = getIpregistryContext(request) ?? {
+            ip: null,
+            data: null,
+            skipped: 'not-enriched' as const,
+        }
+
+        return data ? context[data] : context
     },
 )
 

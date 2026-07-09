@@ -29,6 +29,7 @@ import {
     ALLOW_COUNTRIES_METADATA,
     BLOCK_COUNTRIES_METADATA,
     BLOCK_THREATS_METADATA,
+    SKIP_IPREGISTRY_METADATA,
 } from './constants.js'
 import { isThreat, type ThreatOptions } from './helpers.js'
 import { IPREGISTRY_MODULE_OPTIONS } from './ipregistry.module-definition.js'
@@ -40,6 +41,22 @@ function metadataTargets(
     executionContext: ExecutionContext,
 ): [Parameters<Reflector['get']>[1], ...Parameters<Reflector['get']>[1][]] {
     return [executionContext.getHandler(), executionContext.getClass()]
+}
+
+/**
+ * Whether the route or its controller carries the `@SkipIpregistry()`
+ * decorator.
+ */
+export function isIpregistrySkipped(
+    reflector: Reflector,
+    executionContext: ExecutionContext,
+): boolean {
+    return (
+        reflector.getAllAndOverride<boolean | undefined>(
+            SKIP_IPREGISTRY_METADATA,
+            metadataTargets(executionContext),
+        ) === true
+    )
 }
 
 /**
@@ -85,7 +102,10 @@ export class IpregistryCountriesGuard implements CanActivate {
     ) {}
 
     async canActivate(executionContext: ExecutionContext): Promise<boolean> {
-        if (executionContext.getType() !== 'http') {
+        if (
+            executionContext.getType() !== 'http' ||
+            isIpregistrySkipped(this.reflector, executionContext)
+        ) {
             return true
         }
 
@@ -163,7 +183,10 @@ export class IpregistryThreatsGuard implements CanActivate {
     ) {}
 
     async canActivate(executionContext: ExecutionContext): Promise<boolean> {
-        if (executionContext.getType() !== 'http') {
+        if (
+            executionContext.getType() !== 'http' ||
+            isIpregistrySkipped(this.reflector, executionContext)
+        ) {
             return true
         }
 

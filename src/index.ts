@@ -19,6 +19,7 @@ export {
     BLOCK_COUNTRIES_METADATA,
     BLOCK_THREATS_METADATA,
     IPREGISTRY_CONTEXT_KEY,
+    SKIP_IPREGISTRY_METADATA,
 } from './constants.js'
 export { getIpregistryContext, setIpregistryContext } from './context.js'
 export {
@@ -42,6 +43,8 @@ export {
     ASYNC_OPTIONS_TYPE,
     IPREGISTRY_MODULE_OPTIONS,
     OPTIONS_TYPE,
+    type IpregistryModuleAsyncOptions,
+    type IpregistryModuleRegisterOptions,
 } from './ipregistry.module-definition.js'
 export {
     AllowCountries,
@@ -49,10 +52,12 @@ export {
     BlockThreats,
     ClientIp,
     Ipregistry,
+    SkipIpregistry,
 } from './ipregistry.decorators.js'
 export {
     IpregistryCountriesGuard,
     IpregistryThreatsGuard,
+    isIpregistrySkipped,
 } from './ipregistry.guards.js'
 export { IpregistryInterceptor } from './ipregistry.interceptor.js'
 export { IpregistryMiddleware } from './ipregistry.middleware.js'

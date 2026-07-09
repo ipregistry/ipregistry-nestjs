@@ -17,7 +17,7 @@ Request -> enrichment (1 lookup, cached, memoized per request) -> @Ipregistry() 
 - `IpregistryModule.forRoot` / `forRootAsync` registration with full dependency injection, global by default, failing fast at bootstrap when no API key is configured.
 - `IpregistryService` covering the whole SDK surface: single, batch, and origin lookups for IPs and ASNs, plus user agent parsing.
 - Request enrichment through `IpregistryMiddleware` or `IpregistryInterceptor`: one lookup per request, memoized, readable synchronously with the `@Ipregistry()` parameter decorator.
-- Country blocking (451) and threat/proxy/Tor blocking (403) as guards driven by the `@BlockCountries()`, `@AllowCountries()`, and `@BlockThreats()` decorators, per route, per controller, or application-wide.
+- Country blocking (451) and threat/proxy/Tor blocking (403) with the self-contained `@BlockCountries()`, `@AllowCountries()`, and `@BlockThreats()` decorators, per route, per controller, or application-wide, plus `@SkipIpregistry()` to opt routes out.
 - GDPR helper (`isEuVisitor`) based on the API's `location.in_eu` field, and a local `isBot` check that consumes no credits.
 - Safe by default: fails open when Ipregistry is unreachable, never sends private IPs to the API, and never logs full IP addresses.
 - Built-in caching through the SDK's LRU cache, so repeated visits from the same IP do not consume additional credits; pluggable with any `IpregistryCache` implementation.
@@ -166,22 +166,17 @@ const context = getIpregistryContext(request)
 
 The context is `{ ip, data, skipped?, error? }`: `data` is the SDK's `IpInfo` or null, `skipped` is set when no valid public client IP was available, and `error` is set when the lookup failed (the request still goes through by default, see [Error handling](#error-handling)).
 
-The `@ClientIp()` parameter decorator injects the extracted client IP without any API call.
+`@Ipregistry()` also plucks single properties, like `@Ipregistry('data')` or `@Ipregistry('ip')`. The `@ClientIp()` parameter decorator injects the extracted client IP without any API call.
 
 ## Blocking countries
 
-`IpregistryCountriesGuard` answers 451 Unavailable For Legal Reasons based on the `@BlockCountries()` and `@AllowCountries()` decorators (ISO 3166-1 alpha-2 codes, validated at route definition time):
+The `@BlockCountries()` and `@AllowCountries()` decorators (ISO 3166-1 alpha-2 codes, validated at route definition time) answer 451 Unavailable For Legal Reasons. They are self-contained and apply `IpregistryCountriesGuard` themselves, on a route or a whole controller:
 
 ```ts
-import { Controller, Get, UseGuards } from '@nestjs/common'
-import {
-    AllowCountries,
-    BlockCountries,
-    IpregistryCountriesGuard,
-} from '@ipregistry/nestjs'
+import { Controller, Get } from '@nestjs/common'
+import { AllowCountries, BlockCountries } from '@ipregistry/nestjs'
 
 @Controller()
-@UseGuards(IpregistryCountriesGuard)
 export class StoreController {
     @Get('checkout')
     @BlockCountries('KP', 'IR')
@@ -207,13 +202,12 @@ Route-level decorators override the module-level lists. Routes without any count
 
 ## Blocking threats
 
-`IpregistryThreatsGuard` answers 403 Forbidden for IPs flagged by Ipregistry. By default the `is_threat`, `is_attacker`, and `is_abuser` signals are checked; anonymization signals (proxy, Tor, VPN, relay) are opt-in because they also match legitimate privacy-conscious users:
+The `@BlockThreats()` decorator answers 403 Forbidden for IPs flagged by Ipregistry, applying `IpregistryThreatsGuard` itself. By default the `is_threat`, `is_attacker`, and `is_abuser` signals are checked; anonymization signals (proxy, Tor, VPN, relay) are opt-in because they also match legitimate privacy-conscious users:
 
 ```ts
-import { BlockThreats, IpregistryThreatsGuard } from '@ipregistry/nestjs'
+import { BlockThreats } from '@ipregistry/nestjs'
 
 @Post('signup')
-@UseGuards(IpregistryThreatsGuard)
 @BlockThreats({ tor: true, vpn: true })
 signup() {}
 ```
@@ -229,6 +223,20 @@ providers: [
 ```
 
 Blocking guards enrich the request as a side effect, so `@Ipregistry()` is populated for free in handlers behind a guard.
+
+## Skipping routes
+
+Opt individual routes or controllers out of a globally registered interceptor or guard with `@SkipIpregistry()`, typically for health checks, metrics endpoints, and webhooks:
+
+```ts
+import { SkipIpregistry } from '@ipregistry/nestjs'
+
+@Get('health')
+@SkipIpregistry()
+health() {}
+```
+
+`IpregistryMiddleware` runs before routing and cannot see route metadata; scope it with `forRoutes()` and `exclude()` instead.
 
 ## GDPR and EU detection
 
@@ -350,7 +358,8 @@ Fixture builders `createIpInfo`, `createUserAgent`, and `createAutonomousSystem`
 | `IpregistryInterceptor`                                     | Enriches HTTP requests; platform-agnostic; per handler, controller, or global.   |
 | `IpregistryMiddleware`                                      | Enriches requests from `configure(consumer)`.                                    |
 | `IpregistryCountriesGuard`, `IpregistryThreatsGuard`        | Blocking guards (451 and 403).                                                   |
-| `@BlockCountries()`, `@AllowCountries()`, `@BlockThreats()` | Route and controller decorators feeding the guards.                              |
+| `@BlockCountries()`, `@AllowCountries()`, `@BlockThreats()` | Self-contained route and controller blocking decorators.                         |
+| `@SkipIpregistry()`                                         | Opts a route or controller out of enrichment and blocking.                       |
 | `@Ipregistry()`, `@ClientIp()`                              | Parameter decorators injecting the request context and the client IP.            |
 | `getIpregistryContext(request)`                             | Reads the enriched context from any request object.                              |
 | `isEuVisitor`, `isThreat`, `isBot`                          | Boolean helpers on `IpInfo` or request contexts; `isBot` needs no API call.      |

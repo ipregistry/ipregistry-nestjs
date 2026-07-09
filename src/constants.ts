@@ -37,3 +37,10 @@ export const ALLOW_COUNTRIES_METADATA = 'ipregistry:allow-countries'
  * `IpregistryThreatsGuard`.
  */
 export const BLOCK_THREATS_METADATA = 'ipregistry:block-threats'
+
+/**
+ * Metadata key set by the `@SkipIpregistry()` decorator and honored by
+ * `IpregistryInterceptor`, `IpregistryCountriesGuard`, and
+ * `IpregistryThreatsGuard`.
+ */
+export const SKIP_IPREGISTRY_METADATA = 'ipregistry:skip'

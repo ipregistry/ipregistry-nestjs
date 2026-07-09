@@ -21,11 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `IpregistryInterceptor` and `IpregistryMiddleware` to enrich incoming
   requests on both the Express and Fastify platforms.
 - `IpregistryCountriesGuard` and `IpregistryThreatsGuard` with the
-  `@BlockCountries()`, `@AllowCountries()`, and `@BlockThreats()` decorators,
-  per route, per controller, or application-wide through module options and
-  `APP_GUARD`.
-- `@Ipregistry()` and `@ClientIp()` parameter decorators, and
-  `getIpregistryContext` to read enriched data from raw request objects.
+  self-contained `@BlockCountries()`, `@AllowCountries()`, and
+  `@BlockThreats()` decorators (no separate `@UseGuards()` needed), per
+  route, per controller, or application-wide through module options and
+  `APP_GUARD`, plus `@SkipIpregistry()` to opt routes out of globally
+  registered enrichment and blocking.
+- `@Ipregistry()` (with property plucking, e.g. `@Ipregistry('data')`) and
+  `@ClientIp()` parameter decorators, and `getIpregistryContext` to read
+  enriched data from raw request objects.
 - Trusted-proxy IP extraction presets (`auto`, `cloudflare`, `nginx`,
   `vercel`, `forwarded-for`, `socket`), custom headers, and custom
   extractors, with strict IP validation and anonymized logging.

@@ -8,7 +8,7 @@ import {
     type MiddlewareConsumer,
     type NestModule,
 } from '@nestjs/common'
-import { APP_GUARD } from '@nestjs/core'
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core'
 import { Test } from '@nestjs/testing'
 import request from 'supertest'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -25,6 +25,7 @@ import {
     IpregistryModule,
     IpregistryThreatsGuard,
     MissingApiKeyError,
+    SkipIpregistry,
     type IpregistryModuleOptions,
     type IpregistryRequestContext,
 } from '../src/index.js'
@@ -80,6 +81,33 @@ class TestController {
     @BlockThreats()
     threats(@Ipregistry() ipregistry: IpregistryRequestContext) {
         return { country: ipregistry.data?.location?.country?.code }
+    }
+
+    @Get('standalone-blocked')
+    @BlockCountries('FR')
+    standaloneBlocked() {
+        return { ok: true }
+    }
+
+    @Get('standalone-threats')
+    @BlockThreats()
+    standaloneThreats() {
+        return { ok: true }
+    }
+
+    @Get('pluck')
+    @UseInterceptors(IpregistryInterceptor)
+    pluck(
+        @Ipregistry('ip') ip: string | null,
+        @Ipregistry('data') data: IpregistryRequestContext['data'],
+    ) {
+        return { ip, country: data?.location?.country?.code }
+    }
+
+    @Get('health')
+    @SkipIpregistry()
+    health() {
+        return { ok: true }
     }
 }
 
@@ -264,6 +292,104 @@ describe('threat blocking (Express)', () => {
 
         await request(server).get('/ip').set('x-real-ip', THREAT_IP).expect(403)
         await request(server).get('/ip').set('x-real-ip', FRENCH_IP).expect(200)
+    })
+})
+
+describe('self-contained blocking decorators (Express)', () => {
+    it('blocks countries without an explicit @UseGuards', async () => {
+        const server = (await createApp()).getHttpServer()
+
+        await request(server)
+            .get('/standalone-blocked')
+            .set('x-real-ip', FRENCH_IP)
+            .expect(451)
+        await request(server)
+            .get('/standalone-blocked')
+            .set('x-real-ip', US_IP)
+            .expect(200)
+    })
+
+    it('blocks threats without an explicit @UseGuards', async () => {
+        const server = (await createApp()).getHttpServer()
+
+        await request(server)
+            .get('/standalone-threats')
+            .set('x-real-ip', THREAT_IP)
+            .expect(403)
+        await request(server)
+            .get('/standalone-threats')
+            .set('x-real-ip', FRENCH_IP)
+            .expect(200)
+    })
+})
+
+describe('@Ipregistry() data plucking (Express)', () => {
+    it('injects single context properties', async () => {
+        const server = (await createApp()).getHttpServer()
+        const response = await request(server)
+            .get('/pluck')
+            .set('x-real-ip', FRENCH_IP)
+            .expect(200)
+
+        expect(response.body).toEqual({ ip: FRENCH_IP, country: 'FR' })
+    })
+})
+
+@Controller()
+class SkipController {
+    @Get('enriched')
+    enriched(@Ipregistry() ipregistry: IpregistryRequestContext) {
+        return ipregistry
+    }
+
+    @Get('skipped')
+    @SkipIpregistry()
+    skipped(@Ipregistry() ipregistry: IpregistryRequestContext) {
+        return ipregistry
+    }
+}
+
+describe('@SkipIpregistry() (Express)', () => {
+    it('opts routes out of a globally registered interceptor', async () => {
+        const client = createFakeClient()
+        const moduleRef = await Test.createTestingModule({
+            imports: [IpregistryModule.forRoot({ client })],
+            controllers: [SkipController],
+            providers: [
+                { provide: APP_INTERCEPTOR, useClass: IpregistryInterceptor },
+            ],
+        }).compile()
+
+        app = moduleRef.createNestApplication()
+        await app.init()
+        const server = app.getHttpServer()
+
+        const enriched = await request(server)
+            .get('/enriched')
+            .set('x-real-ip', FRENCH_IP)
+            .expect(200)
+        const skipped = await request(server)
+            .get('/skipped')
+            .set('x-real-ip', FRENCH_IP)
+            .expect(200)
+
+        expect(enriched.body.data.location.country.code).toBe('FR')
+        expect(skipped.body.skipped).toBe('not-enriched')
+        expect(client.lookups).toHaveLength(1)
+    })
+
+    it('opts routes out of globally registered blocking guards', async () => {
+        const server = (
+            await createApp({ blockCountries: ['FR'] }, [
+                { provide: APP_GUARD, useClass: IpregistryCountriesGuard },
+            ])
+        ).getHttpServer()
+
+        await request(server).get('/ip').set('x-real-ip', FRENCH_IP).expect(451)
+        await request(server)
+            .get('/health')
+            .set('x-real-ip', FRENCH_IP)
+            .expect(200)
     })
 })
 

@@ -30,3 +30,16 @@ export const {
         global: extras.isGlobal,
     }))
     .build()
+
+/**
+ * The options accepted by `IpregistryModule.forRoot`, including the
+ * `isGlobal` extra.
+ */
+export type IpregistryModuleRegisterOptions = typeof OPTIONS_TYPE
+
+/**
+ * The options accepted by `IpregistryModule.forRootAsync`
+ * (`useFactory`/`useClass`/`useExisting`, `inject`, `imports`, plus the
+ * `isGlobal` extra).
+ */
+export type IpregistryModuleAsyncOptions = typeof ASYNC_OPTIONS_TYPE

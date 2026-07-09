@@ -22,8 +22,10 @@ import {
     type ExecutionContext,
     type NestInterceptor,
 } from '@nestjs/common'
+import { Reflector } from '@nestjs/core'
 import type { Observable } from 'rxjs'
 
+import { isIpregistrySkipped } from './ipregistry.guards.js'
 import { IPREGISTRY_MODULE_OPTIONS } from './ipregistry.module-definition.js'
 import { IpregistryService } from './ipregistry.service.js'
 import type { IpregistryModuleOptions } from './options.js'
@@ -42,11 +44,12 @@ import type { RequestLike } from './types.js'
  * ```
  *
  * Non-HTTP execution contexts (WebSockets, microservices, GraphQL) pass
- * through untouched.
+ * through untouched, and so do routes decorated with `@SkipIpregistry()`.
  */
 @Injectable()
 export class IpregistryInterceptor implements NestInterceptor {
     constructor(
+        @Inject(Reflector) private readonly reflector: Reflector,
         @Inject(IpregistryService)
         private readonly service: IpregistryService,
         @Inject(IPREGISTRY_MODULE_OPTIONS)
@@ -57,7 +60,10 @@ export class IpregistryInterceptor implements NestInterceptor {
         executionContext: ExecutionContext,
         next: CallHandler,
     ): Promise<Observable<unknown>> {
-        if (executionContext.getType() === 'http') {
+        if (
+            executionContext.getType() === 'http' &&
+            !isIpregistrySkipped(this.reflector, executionContext)
+        ) {
             const request = executionContext
                 .switchToHttp()
                 .getRequest<RequestLike>()
