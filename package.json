@@ -1,6 +1,6 @@
 {
     "name": "@ipregistry/nestjs",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Official Ipregistry integration for NestJS: IP geolocation and threat detection with dependency injection, guards, and decorators.",
     "type": "module",
     "private": false,

@@ -17,4 +17,4 @@
 /**
  * The library version. Kept in sync with package.json by a test.
  */
-export const LIBRARY_VERSION = '1.0.0'
+export const LIBRARY_VERSION = '1.0.1'
