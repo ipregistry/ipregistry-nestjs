@@ -34,3 +34,25 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # The package declares support for NestJS 10 and 11 in peerDependencies;
+  # the main job tests against 11 (the dev dependencies), this one proves 10.
+  compat-nestjs-10:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Use Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Downgrade NestJS to v10
+        run: npm install --no-save @nestjs/common@^10 @nestjs/core@^10 @nestjs/platform-express@^10 @nestjs/platform-fastify@^10 @nestjs/testing@^10
+
+      - name: Test
+        run: npm test
