@@ -21,6 +21,8 @@ import {
     UseGuards,
     type CustomDecorator,
     type ExecutionContext,
+    type PipeTransform,
+    type Type,
 } from '@nestjs/common'
 
 import {
@@ -39,6 +41,21 @@ import {
 import type { IpregistryRequestContext, RequestLike } from './types.js'
 
 type BlockingDecorator = ClassDecorator & MethodDecorator
+
+/**
+ * Declared explicitly rather than inferred from `createParamDecorator`, whose
+ * return type differs between NestJS majors (12 adds
+ * `ParameterDecoratorOptions`, which 10 and 11 do not export): the published
+ * declarations must type-check against every supported major.
+ */
+type IpregistryParamDecorator = (
+    ...dataOrPipes: (
+        | keyof IpregistryRequestContext
+        | undefined
+        | PipeTransform
+        | Type<PipeTransform>
+    )[]
+) => ParameterDecorator
 
 function normalizeCountries(decorator: string, countries: string[]): string[] {
     if (countries.length === 0) {
@@ -157,7 +174,7 @@ export const SkipIpregistry = (): CustomDecorator<string> =>
  * }
  * ```
  */
-export const Ipregistry = createParamDecorator(
+export const Ipregistry: IpregistryParamDecorator = createParamDecorator(
     (
         data: keyof IpregistryRequestContext | undefined,
         executionContext: ExecutionContext,
