@@ -36,10 +36,14 @@ jobs:
       - name: Build
         run: npm run build
 
-  # The package declares support for NestJS 10 and 11 in peerDependencies;
-  # the main job tests against 11 (the dev dependencies), this one proves 10.
-  compat-nestjs-10:
+  # The package declares support for NestJS 10, 11 and 12 in
+  # peerDependencies; the main job tests against 12 (the dev dependencies),
+  # this one proves the older majors.
+  compat-nestjs:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        nestjs-version: [10, 11]
     steps:
       - uses: actions/checkout@v7
 
@@ -52,8 +56,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Downgrade NestJS to v10
-        run: npm install --no-save @nestjs/common@^10 @nestjs/core@^10 @nestjs/platform-express@^10 @nestjs/platform-fastify@^10 @nestjs/testing@^10
+      - name: Downgrade NestJS to v${{ matrix.nestjs-version }}
+        run: npm install --no-save @nestjs/common@^${{ matrix.nestjs-version }} @nestjs/core@^${{ matrix.nestjs-version }} @nestjs/platform-express@^${{ matrix.nestjs-version }} @nestjs/platform-fastify@^${{ matrix.nestjs-version }} @nestjs/testing@^${{ matrix.nestjs-version }}
+
+      - name: Type check
+        run: npm run typecheck
 
       - name: Test
         run: npm test
