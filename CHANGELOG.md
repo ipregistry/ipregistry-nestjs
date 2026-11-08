@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-11-08
+
+### Added
+
+- NestJS 12 support: the peer dependencies accept NestJS 10, 11 and 12.
+- `createIpInfo` fills `connection.is_anycast`, `security.is_residential_proxy`
+  and the currency format's `decimal_separator` and `group_separator`.
+
+### Changed
+
+- Requires `@ipregistry/client` 7.2 or later, which adds `connection.is_anycast`
+  and `security.is_residential_proxy` to the response model.
+- The `Ipregistry` parameter decorator has an explicit type, so the published
+  declarations type-check on NestJS 10, 11 and 12 alike.
+- Built with tsdown 0.23; the published files and the package exports are
+  unchanged.
+
 ## [1.0.1] - 2026-07-09
 
 ### Changed
