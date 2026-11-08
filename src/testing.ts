@@ -98,6 +98,7 @@ export function createIpInfo(overrides: DeepPartial<IpInfo> = {}): IpInfo {
         connection: {
             asn: 12322,
             domain: 'free.fr',
+            is_anycast: false,
             organization: 'Free SAS',
             route: '82.64.0.0/14',
             type: 'isp',
@@ -159,6 +160,7 @@ export function createIpInfo(overrides: DeepPartial<IpInfo> = {}): IpInfo {
             is_cloud_provider: false,
             is_proxy: false,
             is_relay: false,
+            is_residential_proxy: false,
             is_tor: false,
             is_tor_exit: false,
             is_anonymous: false,
