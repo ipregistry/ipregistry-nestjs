@@ -88,20 +88,20 @@
         "rxjs": "^7.1.0"
     },
     "devDependencies": {
-        "@nestjs/common": "^11.0.0",
-        "@nestjs/core": "^11.0.0",
-        "@nestjs/platform-express": "^11.0.0",
-        "@nestjs/platform-fastify": "^11.0.0",
-        "@nestjs/testing": "^11.0.0",
-        "@types/node": "^26.1.0",
-        "@types/supertest": "^7.2.0",
-        "prettier": "^3.0.0",
+        "@nestjs/common": "^11.2.8",
+        "@nestjs/core": "^11.2.8",
+        "@nestjs/platform-express": "^11.2.8",
+        "@nestjs/platform-fastify": "^11.2.8",
+        "@nestjs/testing": "^11.2.8",
+        "@types/node": "^26.6.6",
+        "@types/supertest": "^7.2.1",
+        "prettier": "^3.9.10",
         "reflect-metadata": "^0.2.2",
         "rxjs": "^7.8.1",
-        "supertest": "^7.0.0",
-        "tsdown": "^0.22.4",
+        "supertest": "^7.3.2",
+        "tsdown": "^0.22.14",
         "typescript": "^7.0.2",
-        "vitest": "^4.1.9"
+        "vitest": "^4.1.12"
     },
     "engines": {
         "node": ">=20.0.0"

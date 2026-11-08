@@ -111,6 +111,8 @@ export function createIpInfo(overrides: DeepPartial<IpInfo> = {}): IpInfo {
             symbol: '€',
             symbol_native: '€',
             format: {
+                decimal_separator: ',',
+                group_separator: ' ',
                 negative: { prefix: '-', suffix: ' €' },
                 positive: { prefix: '', suffix: ' €' },
             },
